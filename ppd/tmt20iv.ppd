@@ -1,0 +1,82 @@
+*PPD-Adobe: "4.3"
+*%
+*% tmt20iv.ppd - CUPS raster PPD for the Epson TM-T20IV 80mm ePOS driver.
+*% Not a PostScript printer: rastertotmt20iv converts the CUPS raster CUPS
+*% generates from this PPD's page/color settings into ePOS <image> XML.
+*% Width is 576 dots @ 203dpi (~72mm) per FACTS.md - confirm/tune in test T2.
+*%
+*FormatVersion: "4.3"
+*FileVersion: "1.0"
+*LanguageVersion: English
+*LanguageEncoding: ISOLatin1
+*PCFileName: "TMT20IV.PPD"
+*Manufacturer: "Epson"
+*Product: "(TM-T20IV)"
+*cupsVersion: 2.4
+*cupsSNMPSupplies: False
+*cupsLanguages: "en"
+*ModelName: "Epson TM-T20IV 80mm ePOS"
+*ShortNickName: "TM-T20IV ePOS"
+*NickName: "Epson TM-T20IV 80mm ePOS"
+*PSVersion: "(3010.000) 0"
+*LanguageLevel: "3"
+*ColorDevice: False
+*DefaultColorSpace: Gray
+*FileSystem: False
+*Throughput: "1"
+*TTRasterizer: Type42
+*cupsManualCopies: True
+*cupsModelNumber: 1
+
+*cupsFilter: "application/vnd.cups-raster 100 rastertotmt20iv"
+
+*% Page = full 80mm roll width (226.77pt) so apps/browsers that assume "80mm
+*% paper" get the right default with no custom media needed. HWMargins carve
+*% out the true printable strip: 576 dots @ 203dpi = 72mm (204.3pt), per
+*% FACTS.md - centered, ~4mm (11.24pt) unprintable each side.
+*OpenUI *PageSize: PickOne
+*OrderDependency: 10 AnySetup *PageSize
+*DefaultPageSize: Roll80mm
+*PageSize Roll80mm/Roll 80mm x 1000mm: "<</PageSize[226.77 2834]/ImagingBBox null>>setpagedevice"
+*CloseUI: *PageSize
+
+*OpenUI *PageRegion: PickOne
+*OrderDependency: 10 AnySetup *PageRegion
+*DefaultPageRegion: Roll80mm
+*PageRegion Roll80mm/Roll 80mm x 1000mm: "<</PageSize[226.77 2834]/ImagingBBox null>>setpagedevice"
+*CloseUI: *PageRegion
+
+*DefaultImageableArea: Roll80mm
+*ImageableArea Roll80mm/Roll 80mm x 1000mm: "11.24 0 215.53 2834"
+
+*DefaultPaperDimension: Roll80mm
+*PaperDimension Roll80mm/Roll 80mm x 1000mm: "226.77 2834"
+
+*HWMargins: 11.24 0 11.24 0
+*VariablePaperSize: True
+*MaxMediaWidth: 226.77
+*MaxMediaHeight: 14400
+*MinMediaWidth: 226.77
+*MinMediaHeight: 36
+*ParamCustomPageSize Width: 1 points 220 230
+*ParamCustomPageSize Height: 2 points 36 14400
+*ParamCustomPageSize WidthOffset: 3 points 0 0
+*ParamCustomPageSize HeightOffset: 4 points 0 0
+*CustomPageSize True: "pop pop pop <</PageSize[5 -2 roll]/ImagingBBox null>>setpagedevice"
+
+*OpenUI *Resolution: PickOne
+*OrderDependency: 10 AnySetup *Resolution
+*DefaultResolution: 203dpi
+*Resolution 203dpi/203 DPI: "<</HWResolution[203 203]>>setpagedevice"
+*CloseUI: *Resolution
+
+*OpenUI *ColorModel/Color Mode: PickOne
+*OrderDependency: 10 AnySetup *ColorModel
+*DefaultColorModel: Gray
+*ColorModel Gray/Black and White: "<</cupsColorSpace 3/cupsBitsPerColor 1/cupsRowCount 0>>setpagedevice"
+*CloseUI: *ColorModel
+
+*cupsBackSide: Normal
+*DefaultOutputOrder: Normal
+*%
+*% End of tmt20iv.ppd
