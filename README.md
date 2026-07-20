@@ -24,8 +24,7 @@ carving out the true 576-dot printable strip, matching how any commercial 80mm
 thermal printer PPD works - client HTML/CSS should keep content inside that
 72mm-effective width (leave ~4mm on each side).
 
-## If you are a Claude session picking this up on the Mint
-Read in this order:
+## Read in this order:
 1. **FACTS.md** — verified ground truth about the printer. Trust it; do **not** re-test
    the printer to rediscover it (it was proven over two days of diagnosis).
 2. **SPEC.md** — the design (architecture + the C components to build).
@@ -38,7 +37,7 @@ Read in this order:
 buffer. Reuse those (fixing the two bugs noted in FACTS.md); ignore its `escpos.c`.
 
 ## Locked decisions
-- **Language: C.** (Filter + backend. No Python.)
+- **Language: C.** (Filter + backend.)
 - **Topology:** one **print-server** Mint owns the queue; every other Mint adds it as a
   shared printer. Dedicated server box or a client PC running Chrome — identical; the
   "server" is just whichever host runs CUPS. Currently the only Mint, at `.51` (test).
