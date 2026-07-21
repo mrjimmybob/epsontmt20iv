@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
                reprints once fixed, rather than discarding it. */
             fprintf(stderr, "ERROR: epos: printer needs attention "
                             "(load paper / close cover / clear mechanism)\n");
-            result = CUPS_BACKEND_STOP;
+            result = CUPS_BACKEND_RETRY;
         }
         else
         {
