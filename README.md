@@ -1,4 +1,4 @@
-# epsont20iv — CUPS thermal driver for Epson TM-T20IV
+# epsontmt20iv — CUPS thermal driver for Epson TM-T20IV
 
 Build a CUPS print queue on Linux Mint so a Chrome web app can print **80 mm tickets**
 to an Epson **TM-T20IV** — a printer that only speaks **ePOS-Print over HTTPS**, not
