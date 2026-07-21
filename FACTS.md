@@ -23,6 +23,9 @@ these and not spend print-tests rediscovering them.
   ready), `SchemaError` (invalid/unsupported XML).
 - A healthy print reply looks like:
   `<response success="true" code="" status="251658262" battery="0" .../>`
+- The `status` attribute is the Epson **ASB bitmask**: `251658262` = `0x0F000016` is
+  healthy; `1` means the mechanism gave no response (wedged). Decoding it into CUPS
+  printer-state reasons (paper-out, cover-open) is **TASKS.md → T01**.
 
 ## TLS
 - Cert is **self-signed**, `CN=EPSOND400E6`. Its SAN lists the **factory** IP
@@ -30,6 +33,10 @@ these and not spend print-tests rediscovering them.
   by IP fails. The backend must **skip TLS verification** (libcurl
   `CURLOPT_SSL_VERIFYPEER=0`, `CURLOPT_SSL_VERIFYHOST=0`; curl `-k`). Because only the
   server talks to the printer, this is acceptable and invisible to clients.
+- The printer also returns `Access-Control-Allow-Origin: *` **and**
+  `Access-Control-Allow-Private-Network: true`, so a browser on a public origin *could*
+  call it directly. Not used by this driver — relevant only if an app ever prints from
+  JavaScript instead of via CUPS.
 
 ## Known-good request (this exact shape printed successfully)
 ```xml
@@ -47,23 +54,58 @@ these and not spend print-tests rediscovering them.
 - **A set bit (1) = a black dot.** (If output prints inverted, flip this.)
 - `width` = dots per line (≤ printable width). `height` = number of raster lines.
 - Element text = **base64** of the packed buffer.
-- Multiple `<image>` elements **stack vertically** — use this to send a long receipt as
-  several strips. There is a practical max height per request (memory); chunk into
-  strips (start at 256 lines, tune in test T4).
-- **Printable width for 80 mm @ 203 dpi ≈ 576 dots** (72 mm). CONFIRM in test T2 — some
-  units are 512.
+- Multiple `<image>` elements **stack vertically** — a long receipt is sent as several
+  strips. There is a practical max height per request; currently chunked at 256 lines,
+  which was a **guess and has never been measured** — see TASKS.md → T07.
+- **Printable width for 80 mm @ 203 dpi = 576 dots** (72 mm) — CONFIRMED in production.
 
-## Reuse from tmbridge (`mrjimmybob/tmbridge` / `D:\Data\Projects\Development\tmbridge`)
-- `buffer.c/.h` — dynamic byte buffer with append/format. Reuse as-is (has base64-friendly
-  append). Good, no known bugs.
-- `http.c` — libcurl POST pattern. Reuse, **but fix the known bug**: it treats any HTTP
-  200 as success. **Add a `success="true"` body check** (see endpoint note above) and map
-  failure to CUPS backend exit codes.
-- `epos.c` — SOAP-envelope wrapping (`<s:Envelope>…<epos-print>…`). Reuse.
-- **Do NOT reuse `escpos.c`** — that's the ESC/POS→ePOS translator from the old bridge;
-  irrelevant to a raster driver. (For the record it also had two bugs found in review: a
-  `parse_barcode` off-by-one that dropped the barcode + everything after it, and a
-  double-XML-escape that mangled accents/`&`. Not our code path here.)
+## CUPS pipeline facts (confirmed during the Chrome bring-up)
+- **`print-scaling` MUST be `none`.** `install.sh` sets
+  `lpadmin -o print-scaling-default=none`. **Never remove it.** With the default
+  (`auto`), `cfFilterPDFToPDF` sees the 80 mm page (`226.77 pt`) as wider than the
+  72 mm printable strip (`204.29 pt`), logs *"Page 1 too large for output page size,
+  scaling pages to fit"*, and — compounded by a US-Letter fallback — shrank tickets to
+  roughly **25%**. The symptom is a perfectly correct but tiny receipt. This cost a day
+  to find.
+- **Observed raster at the filter:** `576 x 7984, 8 bpp, colorspace=18` (that height was
+  the old 1000 mm page). The 576 confirms the 80 mm / 203 dpi geometry is correct.
+- `colorspace=18` is `CUPS_CSPACE_SW` (sGray, **0 = black**), so the filter's
+  `line[x] < 128 ⇒ black` threshold is right for it.
+- **The PPD's `ColorModel` is currently ignored.** Every job logs
+  `E ppdFilterLoadPPD: Unable to generate CUPS Raster sample header.`, so Ghostscript
+  renders 8-bit sGray instead of the declared 1-bit K — 8× the data for identical
+  output. See TASKS.md → T06.
+- **`cupstestppd -v ppd/tmt20iv.ppd` reports NO ERRORS** (only a cosmetic warning that
+  the size "should" be named `80x999.77mm`). The PPD is conformant — so the sample-header
+  failure is something `cupsRasterInterpretPPD()` specifically dislikes, not a
+  conformance problem.
+- **Chrome's print preview shows the PPD's declared page height**, not the trimmed
+  output. The page was shortened from 1000 mm to **300 mm (`850.39 pt`)** so the preview
+  isn't an absurd ribbon. Blank-trimming still means short tickets waste no paper.
+- **The cut is emitted once per JOB** (in `main()`; the per-page cut in `process_page()`
+  is commented out), so a receipt that paginates prints continuously with a single cut.
+  Do not move it back.
+- **End-to-end verified:** Chrome → Ctrl+P → queue `TMT20IV-ttp` prints
+  `sample_receipt_80mm.pdf` (logo, table, barcode, QR) at full width with a clean cut.
+
+## Environment gotcha — CRLF
+This repo round-trips through Windows. If `./install.sh` fails with
+*"no such file or directory"* **even though the file exists**, the shebang has a
+trailing `\r` and the kernel is looking for `/bin/sh\r`. Fix:
+```bash
+sed -i 's/\r$//' install.sh && chmod +x install.sh
+```
+A `.gitattributes` containing `* text=auto eol=lf` prevents recurrence — TASKS.md → T15.
+
+## Reuse from tmbridge (`mrjimmybob/tmbridge`)
+- `buffer.c/.h` — dynamic byte buffer with append/format. Reused as-is.
+- `http.c` — libcurl POST pattern. Reused, **with its bug fixed**: it treated any HTTP
+  200 as success; the backend now checks the body for `success="true"`.
+- `epos.c` — SOAP-envelope wrapping (`<s:Envelope>…<epos-print>…`). Reused.
+- **Do NOT reuse `escpos.c`** — the ESC/POS→ePOS translator from the old bridge;
+  irrelevant to a raster driver. (For the record it had two bugs found in review: a
+  `parse_barcode` off-by-one that dropped the barcode *and everything after it*, and a
+  double-XML-escape that mangled accents and `&`. Not our code path here.)
 
 ## Misc
 - Printer MAC `68:55:D4:2E:DA:71`.
