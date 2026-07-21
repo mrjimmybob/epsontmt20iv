@@ -37,6 +37,10 @@ lpadmin -p "$QUEUE" -E \
         -P /usr/share/ppd/epsont20iv/tmt20iv.ppd \
         -o printer-is-shared=true
 
+echo "==> Setting default print scaling to none"
+lpadmin -p "$QUEUE" \
+        -o print-scaling-default=none
+        
 echo "==> Enabling printer sharing"
 cupsctl _share_printers=1
 
