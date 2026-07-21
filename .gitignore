@@ -53,3 +53,8 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# compiled binaries (ELF, no extension — .gitignore extensions miss these)
+/epos
+/rastertotmt20iv
+
