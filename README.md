@@ -32,8 +32,8 @@ thermal printer PPD works - client HTML/CSS should keep content inside that
    install, and an escalating test plan with exact commands.
 4. **CLIENT-INSTALL.md** — instructions for adding the shared queue on other Mints.
 
-`tmbridge/` (a superseded sibling project, on GitHub `mrjimmybob/tmbridge` and at
-`D:\Data\Projects\Development\tmbridge`) has reusable C: the libcurl POST + dynamic
+`tmbridge/` (a superseded sibling project, on GitHub `mrjimmybob/tmbridge` and 
+`tmbridge`) has reusable C: the libcurl POST + dynamic
 buffer. Reuse those (fixing the two bugs noted in FACTS.md); ignore its `escpos.c`.
 
 ## Locked decisions
