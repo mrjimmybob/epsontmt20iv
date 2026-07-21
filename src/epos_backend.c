@@ -11,11 +11,13 @@
 #include "config.h"
 #include "epos.h"
 #include "http.h"
+#include "status.h"
 
 #include <cups/backend.h>
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -110,22 +112,44 @@ int main(int argc, char *argv[])
         return CUPS_BACKEND_FAILED;
     }
 
-    if (epos_print(&job, &response))
     {
-        fprintf(stderr, "INFO: epos: printed successfully\n");
-        result = CUPS_BACKEND_OK;
-    }
-    else if (strstr(buffer_data(&response), "EX_TIMEOUT") != NULL)
-    {
-        fprintf(stderr, "ERROR: epos: printer busy (EX_TIMEOUT), will retry: %s\n",
-                buffer_data(&response));
-        result = CUPS_BACKEND_RETRY;
-    }
-    else
-    {
-        fprintf(stderr, "ERROR: epos: print failed: %s\n",
-                buffer_length(&response) > 0 ? buffer_data(&response) : "(no response / transport error)");
-        result = CUPS_BACKEND_FAILED;
+        bool printed = epos_print(&job, &response);
+        epos_state_class_t state = EPOS_STATE_OK;
+        uint32_t status;
+
+        /* Always translate the printer's status bits into CUPS state reasons,
+           whether or not the job printed: a successful job can still warn
+           (paper low), and a failure usually carries the cause (paper end /
+           cover open). This also clears stale reasons once healthy again. */
+        if (epos_status_parse(buffer_data(&response), &status))
+            state = epos_status_report(status, stderr);
+
+        if (printed)
+        {
+            fprintf(stderr, "INFO: epos: printed successfully\n");
+            result = CUPS_BACKEND_OK;
+        }
+        else if (strstr(buffer_data(&response), "EX_TIMEOUT") != NULL)
+        {
+            fprintf(stderr, "ERROR: epos: printer busy (EX_TIMEOUT), will retry: %s\n",
+                    buffer_data(&response));
+            result = CUPS_BACKEND_RETRY;
+        }
+        else if (state == EPOS_STATE_BLOCKED)
+        {
+            /* Physical condition the operator must clear (paper out / cover
+               open / mechanism). Stop the queue so the ticket isn't lost and
+               reprints once fixed, rather than discarding it. */
+            fprintf(stderr, "ERROR: epos: printer needs attention "
+                            "(load paper / close cover / clear mechanism)\n");
+            result = CUPS_BACKEND_STOP;
+        }
+        else
+        {
+            fprintf(stderr, "ERROR: epos: print failed: %s\n",
+                    buffer_length(&response) > 0 ? buffer_data(&response) : "(no response / transport error)");
+            result = CUPS_BACKEND_FAILED;
+        }
     }
 
     buffer_free(&response);
