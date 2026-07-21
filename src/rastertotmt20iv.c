@@ -26,11 +26,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#define CHUNK_ROWS        256  /* rows per <image> strip; tune in test T4 */
-#define INVERT_BITS       0    /* flip to 1 if T2 shows output printing inverted */
-#define PRINTER_WIDTH_DOTS 576 /* physical max per FACTS.md - never exceed */
-#define TRIM_PAD_ROWS     24   /* ~3mm of blank kept after the last ink row */
-#define LEAD_PAD_ROWS      8   /* ~1mm of blank kept before the first ink row */
+#define CHUNK_ROWS         256  /* rows per <image> strip; tune in test T4 */
+#define INVERT_BITS          0  /* flip to 1 if T2 shows output printing inverted */
+#define PRINTER_WIDTH_DOTS 576  /* physical max per FACTS.md - never exceed */
+#define TRIM_PAD_ROWS       24  /* ~3mm of blank kept after the last ink row */
+#define LEAD_PAD_ROWS        8  /* ~1mm of blank kept before the first ink row */
 
 static const char BASE64_ALPHABET[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -273,8 +273,12 @@ static bool process_page(cups_raster_t *ras, cups_page_header2_t *header, buffer
 
     free(page);
 
-    if (ok)
+    /* Let move it out of the way so the backend can wrap it in the SOAP envelope and POST it.
+    
+    if (ok) {
         ok = buffer_append_string(body, "<feed line=\"3\"/><cut type=\"feed\"/>");
+    }
+    */    
 
     return ok;
 }
@@ -322,6 +326,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    unsigned pages = 0;
     while (cupsRasterReadHeader2(ras, &header))
     {
         if (!process_page(ras, &header, &body))
@@ -329,6 +334,13 @@ int main(int argc, char *argv[])
             status = 1;
             break;
         }
+        pages++;
+    }
+
+    if (status == 0 && pages > 0)
+    {
+        if (!buffer_append_string(&body, "<feed line=\"3\"/><cut type=\"feed\"/>"))
+            status = 1;
     }
 
     cupsRasterClose(ras);
