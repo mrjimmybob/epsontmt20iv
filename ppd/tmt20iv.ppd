@@ -37,20 +37,20 @@
 *OpenUI *PageSize: PickOne
 *OrderDependency: 10 AnySetup *PageSize
 *DefaultPageSize: Roll80mm
-*PageSize Roll80mm/Roll 80mm x 1000mm: "<</PageSize[226.77 2834]/ImagingBBox null>>setpagedevice"
+*PageSize Roll80mm/Roll 80mm x 1000mm: "<</PageSize[226.77 850.39]/ImagingBBox null>>setpagedevice"
 *CloseUI: *PageSize
 
 *OpenUI *PageRegion: PickOne
 *OrderDependency: 10 AnySetup *PageRegion
 *DefaultPageRegion: Roll80mm
-*PageRegion Roll80mm/Roll 80mm x 1000mm: "<</PageSize[226.77 2834]/ImagingBBox null>>setpagedevice"
+*PageRegion Roll80mm/Roll 80mm x 1000mm: "<</PageSize[226.77 850.39]/ImagingBBox null>>setpagedevice"
 *CloseUI: *PageRegion
 
 *DefaultImageableArea: Roll80mm
-*ImageableArea Roll80mm/Roll 80mm x 1000mm: "11.24 0 215.53 2834"
+*ImageableArea Roll80mm/Roll 80mm x 1000mm: "11.24 0 215.53 850.39"
 
 *DefaultPaperDimension: Roll80mm
-*PaperDimension Roll80mm/Roll 80mm x 1000mm: "226.77 2834"
+*PaperDimension Roll80mm/Roll 80mm x 1000mm: "226.77 850.39"
 
 *HWMargins: 11.24 0 11.24 0
 *VariablePaperSize: True
