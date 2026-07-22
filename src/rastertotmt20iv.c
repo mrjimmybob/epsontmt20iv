@@ -31,7 +31,6 @@
 #define PRINTER_WIDTH_DOTS 576  /* physical max per FACTS.md - never exceed */
 #define TRIM_PAD_ROWS       24  /* ~3mm of blank kept after the last ink row */
 #define LEAD_PAD_ROWS        8  /* ~1mm of blank kept before the first ink row */
-#define MAX_COPIES          50  /* clamp argv[4]; PPD sets cupsManualCopies True */
 
 static const char BASE64_ALPHABET[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -285,12 +284,11 @@ static bool process_page(cups_raster_t *ras, cups_page_header2_t *header, buffer
 
     free(page);
 
-    /* Let move it out of the way so the backend can wrap it in the SOAP envelope and POST it.
-    
-    if (ok) {
+    /* T02: cut after every page. CUPS produces N copies as N duplicated pages, so a
+       per-page cut yields one separately-cut receipt per copy. A receipt is a
+       single-page job, so this never slices a logical receipt. */
+    if (ok)
         ok = buffer_append_string(body, "<feed line=\"3\"/><cut type=\"feed\"/>");
-    }
-    */    
 
     return ok;
 }
@@ -304,7 +302,6 @@ int main(int argc, char *argv[])
     buffer_t body;
     int fd;
     int status = 0;
-    long copies;
 
     if (argc < 6 || argc > 7)
     {
@@ -312,17 +309,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* T02: the PPD declares cupsManualCopies True, so CUPS passes the requested
-       copy count in argv[4] and expects us to produce them. Parse and clamp it. */
-    copies = strtol(argv[4], NULL, 10);
-    if (copies < 1)
-        copies = 1;
-    if (copies > MAX_COPIES)
-    {
-        fprintf(stderr, "WARN: rastertotmt20iv: %ld copies requested, clamping to %d\n",
-                copies, MAX_COPIES);
-        copies = MAX_COPIES;
-    }
+    /* T02: copies are handled by CUPS (it duplicates the page per copy and the PPD
+       sets cupsManualCopies False), so this filter emits exactly the pages it is
+       given, one cut each. It must NOT multiply by argv[4]. */
 
     fd = (argc == 7) ? open(argv[6], O_RDONLY) : 0;
 
@@ -351,7 +340,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    unsigned pages = 0;
     while (cupsRasterReadHeader2(ras, &header))
     {
         if (!process_page(ras, &header, &body))
@@ -359,13 +347,6 @@ int main(int argc, char *argv[])
             status = 1;
             break;
         }
-        pages++;
-    }
-
-    if (status == 0 && pages > 0)
-    {
-        if (!buffer_append_string(&body, "<feed line=\"3\"/><cut type=\"feed\"/>"))
-            status = 1;
     }
 
     cupsRasterClose(ras);
@@ -373,17 +354,8 @@ int main(int argc, char *argv[])
     if (fd != 0)
         close(fd);
 
-    /* T02: `body` is one complete receipt (all pages' images + a trailing feed/cut),
-       so each copy is separately cut. Emit it `copies` times into the single ePOS
-       body the backend POSTs. An empty job (pages == 0) has an empty body, so this
-       writes nothing - correct. */
     if (status == 0)
-    {
-        long c;
-
-        for (c = 0; c < copies; c++)
-            fwrite(buffer_data(&body), 1, buffer_length(&body), stdout);
-    }
+        fwrite(buffer_data(&body), 1, buffer_length(&body), stdout);
 
     buffer_free(&body);
 

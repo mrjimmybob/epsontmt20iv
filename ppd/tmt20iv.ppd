@@ -25,7 +25,7 @@
 *FileSystem: False
 *Throughput: "1"
 *TTRasterizer: Type42
-*cupsManualCopies: True
+*cupsManualCopies: False
 *cupsModelNumber: 1
 
 *cupsFilter: "application/vnd.cups-raster 100 rastertotmt20iv"
