@@ -309,9 +309,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* T02: copies are handled by CUPS (it duplicates the page per copy and the PPD
-       sets cupsManualCopies False), so this filter emits exactly the pages it is
-       given, one cut each. It must NOT multiply by argv[4]. */
+    /* T02: with cupsManualCopies True, CUPS produces copies by handing us the page
+       duplicated N times, so this filter just emits the pages it is given, one cut
+       each. It must NOT multiply by argv[4] (that was the 3x3=9 double-count bug). */
 
     fd = (argc == 7) ? open(argv[6], O_RDONLY) : 0;
 
