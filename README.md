@@ -17,6 +17,7 @@ serialize without wedging the printer; T5's cross-host leg (adding the queue fro
 actual second Mint) is deferred until a second machine exists — see
 **CLIENT-INSTALL.md** for the instructions to hand to whoever sets one up.
 
+
 Since then, two roadmap items are also **done and verified on the unit**: **T01**
 (paper-out / cover / error now reported to CUPS — paper-out confirmed as
 `code="EPTR_REC_EMPTY"`, status bit `0x00080000`; blocked jobs use `CUPS_BACKEND_RETRY`
