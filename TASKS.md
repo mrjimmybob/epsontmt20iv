@@ -29,14 +29,14 @@ re-testing things already proven.
 | T05 | PAPER-WIDTH | 2 | Support 58 mm rolls, not just 80 mm | ☐ |
 | T06 | RASTER-HEADER | 2 | Fix the PPD sample-header error → true 1-bit rendering (8× less data) | ✅ |
 | T07 | CHUNK-LIMIT | 2 | Measure the printer's real max `<image>` height instead of guessing 256 | ☐ |
-| T08 | DEBUG-GEOMETRY | 2 | Log resolution + page height in the filter's DEBUG line | ☐ |
+| T08 | DEBUG-GEOMETRY | 2 | Log resolution + page height in the filter's DEBUG line | ✅ |
 | T09 | DISCOVERY | 3 | Real network discovery so the printer appears in "Add Printer" | ☐ |
 | T10 | DITHER | 3 | Halftoning so photos/logos aren't blotchy | ☐ |
 | T11 | TUNABLES | 3 | Move compile-time `#define`s into PPD options | ☐ |
 | T12 | TESTS | 3 | Golden-file tests for the raster→XML core | ☐ |
 | T13 | PAGE-SIZES | 3 | Offer several named page lengths | ☐ |
 | T14 | STREAMING | 3 | Stream strips instead of buffering the whole page | ☐ |
-| T15 | REPO-HYGIENE | 3 | Stop tracking build artifacts; ignore `.claude/` | ☐ |
+| T15 | REPO-HYGIENE | 3 | Stop tracking build artifacts; ignore `.claude/` | ✅ |
 | T16 | PACKAGING | 4 | `.deb`, driver-database entry, man page, versioning | ☐ |
 | T17 | TLS-TRUST | 4 | Optional real certificate validation | ☐ |
 | T18 | I18N | 4 | Spanish PPD option translations | ☐ |
@@ -54,8 +54,8 @@ re-testing things already proven.
 - **T02 (copies)** — CUPS duplicates pages; filter cuts per page; no filter-side loop.
 - **T03 (width guard)** — dormant `WARN` on width != 576.
 - **T06 (1-bit rendering)** — resolved; jobs now render `1 bpp, colorspace=3`.
-- Compiled binaries untracked + `.gitattributes eol=lf` added (**T15** — partially done;
-  `.claude/` ignore still worth checking).
+- **T08 (debug geometry)** — DEBUG line logs `res=...dpi` and `height=...mm`.
+- **T15 (repo hygiene)** — binaries untracked, `.gitattributes eol=lf`, `.claude/` ignored.
 
 ---
 
@@ -285,9 +285,15 @@ cut, and the chosen chunk size is recorded in FACTS.md.
 
 ---
 
-## T08 — DEBUG-GEOMETRY · Log resolution and page height
-**Why.** When the tiny-print bug struck, the one number that would have identified it
-instantly — the render resolution — wasn't logged. Cheap insurance.
+## T08 — DEBUG-GEOMETRY · Log resolution and page height  ✅ DONE
+The filter's DEBUG line now also prints `res=%ux%udpi` and `height=%.1fmm`, e.g.
+`page 576x1439 (emit width 576), 1 bpp, colorspace=3, bytes/line=72, res=203x203dpi,
+height=180.1mm`. Resolution is the number that would have caught the tiny-print bug at a
+glance; height flags long-receipt/pagination cases. Compile-checked; visible at
+`LogLevel=debug`.
+
+**Why (original).** When the tiny-print bug struck, the one number that would have
+identified it instantly — the render resolution — wasn't logged. Cheap insurance.
 
 **Where.** `src/rastertotmt20iv.c`, the existing `DEBUG: rastertotmt20iv: page ...`
 `fprintf` in `process_page()`.
@@ -383,11 +389,15 @@ Only worth doing if page sizes grow.
 
 ---
 
-## T15 — REPO-HYGIENE · Stop tracking build artifacts
-**Why.** The compiled `epos` and `rastertotmt20iv` binaries are committed to the public
-repo. `.gitignore` covers `*.o`/`*.exe` but not extensionless ELF binaries, and there is
-no `.claude/` entry (a `.claude/` directory exists in the working copy and is currently
-untracked only by luck).
+## T15 — REPO-HYGIENE · Stop tracking build artifacts  ✅ DONE
+The compiled `epos` and `rastertotmt20iv` binaries are no longer tracked
+(`git rm --cached` + ignored by exact path), a `.gitattributes` with `* text=auto
+eol=lf` is in place (this repo round-trips through Windows and CRLF broke `install.sh`
+once — FACTS.md), and `.claude/` is ignored. `git status` stays clean after a build.
+
+**Why (original).** The compiled binaries were committed to the public repo;
+`.gitignore` covered `*.o`/`*.exe` but not extensionless ELF binaries, and there was no
+`.claude/` entry.
 
 **What to do.** Add `/epos`, `/rastertotmt20iv`, `.claude/` to `.gitignore`;
 `git rm --cached` the two binaries. Add a `.gitattributes` with `* text=auto eol=lf` —

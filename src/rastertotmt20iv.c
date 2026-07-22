@@ -196,10 +196,16 @@ static bool process_page(cups_raster_t *ras, cups_page_header2_t *header, buffer
 
     row_bytes = (width + 7) / 8;
 
+    /* T08: log resolution and page height too. Resolution is the one number that
+       would have identified the "prints too small" bug instantly (it was a scaling
+       issue, not a width issue). Height in mm makes long-receipt/pagination debugging
+       obvious. */
     fprintf(stderr,
-            "DEBUG: rastertotmt20iv: page %ux%u (emit width %u), %u bpp, colorspace=%d, bytes/line=%u\n",
+            "DEBUG: rastertotmt20iv: page %ux%u (emit width %u), %u bpp, colorspace=%d, "
+            "bytes/line=%u, res=%ux%udpi, height=%.1fmm\n",
             header->cupsWidth, height, width, header->cupsBitsPerPixel, header->cupsColorSpace,
-            header->cupsBytesPerLine);
+            header->cupsBytesPerLine, header->HWResolution[0], header->HWResolution[1],
+            header->HWResolution[1] ? (double)height * 25.4 / (double)header->HWResolution[1] : 0.0);
 
     line = malloc(header->cupsBytesPerLine);
     page = malloc((size_t)row_bytes * height);
