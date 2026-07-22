@@ -33,7 +33,7 @@ re-testing things already proven.
 | T09 | DISCOVERY | 3 | Real network discovery so the printer appears in "Add Printer" | ☐ |
 | T10 | DITHER | 3 | Halftoning so photos/logos aren't blotchy | ☐ |
 | T11 | TUNABLES | 3 | Move compile-time `#define`s into PPD options | ☐ |
-| T12 | TESTS | 3 | Golden-file tests for the raster→XML core | ☐ |
+| T12 | TESTS | 3 | Golden-file tests for the raster→XML core | ✅ |
 | T13 | PAGE-SIZES | 3 | Offer several named page lengths | ☐ |
 | T14 | STREAMING | 3 | Stream strips instead of buffering the whole page | ☐ |
 | T15 | REPO-HYGIENE | 3 | Stop tracking build artifacts; ignore `.claude/` | ✅ |
@@ -55,6 +55,8 @@ re-testing things already proven.
 - **T03 (width guard)** — dormant `WARN` on width != 576.
 - **T06 (1-bit rendering)** — resolved; jobs now render `1 bpp, colorspace=3`.
 - **T08 (debug geometry)** — DEBUG line logs `res=...dpi` and `height=...mm`.
+- **T12 (tests)** — raster core factored into `src/raster.c`/`.h`; `make test` runs
+  `test_status` + `test_raster` (pure, no CUPS/curl). Keep them green.
 - **T15 (repo hygiene)** — binaries untracked, `.gitattributes eol=lf`, `.claude/` ignored.
 
 ---
@@ -350,8 +352,20 @@ rebuild and redeploy.
 
 ---
 
-## T12 — TESTS · Golden-file tests for the raster→XML core
-**Why.** The bit-packing, base64, trimming and chunking are pure functions with no I/O —
+## T12 — TESTS · Golden-file tests for the raster→XML core  ✅ DONE
+**Done.** To make the core testable without CUPS, the raster→XML logic was factored out
+of `rastertotmt20iv.c` into a CUPS-free module **`src/raster.c` / `src/raster.h`**
+(`base64_append`, `pack_row` — now takes `bits_per_pixel`/`src_bytes_per_line` instead of
+a `cups_page_header2_t`, `emit_strip`, `render_page_body`). The filter is now just CUPS
+glue that reads rows and calls `render_page_body`. `tests/test_raster.c` (run by
+`make test`) covers: base64 vectors incl. padding, `pack_row` 8-bit threshold / 1-bit
+copy / unsupported-depth, and `render_page_body` for all-blank, an exact single-row
+end-to-end golden, single-ink-row trim (28 rows), both-edges (no trim), and a 600-row
+page chunked 256+256+88. 20 assertions, all green; builds and runs on Windows and the
+Mint alike (no CUPS/curl). Note: the T03 width-guard lives in `process_page` (CUPS side),
+so it's exercised by the on-Mint print + compile, not this pure suite.
+
+**Why (original).** The bit-packing, base64, trimming and chunking are pure functions —
 easy to test, and exactly the kind of code where the `tmbridge` bugs hid until we ran it.
 
 **What to do.** Add a `tests/` target that feeds known CUPS raster files (or synthetic

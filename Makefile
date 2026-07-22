@@ -14,8 +14,8 @@ BACKEND     = epos
 
 all: $(FILTER) $(BACKEND)
 
-$(FILTER): $(SRC)/rastertotmt20iv.c $(SRC)/buffer.c
-	$(CC) $(CFLAGS) -o $@ $(SRC)/rastertotmt20iv.c $(SRC)/buffer.c $(CUPSLIBS)
+$(FILTER): $(SRC)/rastertotmt20iv.c $(SRC)/raster.c $(SRC)/buffer.c
+	$(CC) $(CFLAGS) -o $@ $(SRC)/rastertotmt20iv.c $(SRC)/raster.c $(SRC)/buffer.c $(CUPSLIBS)
 
 $(BACKEND): $(SRC)/epos_backend.c $(SRC)/epos.c $(SRC)/http.c $(SRC)/config.c $(SRC)/log.c $(SRC)/buffer.c $(SRC)/status.c
 	$(CC) $(CFLAGS) $(CURLCFLAGS) -o $@ \
@@ -23,11 +23,15 @@ $(BACKEND): $(SRC)/epos_backend.c $(SRC)/epos.c $(SRC)/http.c $(SRC)/config.c $(
 	    $(shell cups-config --libs) $(CURLLIBS)
 
 # Unit tests for the pure-logic modules (no CUPS/curl deps). Runs anywhere.
-test: tests/test_status
+test: tests/test_status tests/test_raster
 	./tests/test_status
+	./tests/test_raster
 
 tests/test_status: tests/test_status.c $(SRC)/status.c
 	$(CC) $(CFLAGS) -I$(SRC) -o $@ tests/test_status.c $(SRC)/status.c
 
+tests/test_raster: tests/test_raster.c $(SRC)/raster.c $(SRC)/buffer.c
+	$(CC) $(CFLAGS) -I$(SRC) -o $@ tests/test_raster.c $(SRC)/raster.c $(SRC)/buffer.c
+
 clean:
-	rm -f $(FILTER) $(BACKEND) tests/test_status
+	rm -f $(FILTER) $(BACKEND) tests/test_status tests/test_raster
