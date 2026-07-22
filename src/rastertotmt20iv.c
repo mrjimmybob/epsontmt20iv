@@ -31,6 +31,7 @@
 #define PRINTER_WIDTH_DOTS 576  /* physical max per FACTS.md - never exceed */
 #define TRIM_PAD_ROWS       24  /* ~3mm of blank kept after the last ink row */
 #define LEAD_PAD_ROWS        8  /* ~1mm of blank kept before the first ink row */
+#define MAX_COPIES          50  /* clamp argv[4]; PPD sets cupsManualCopies True */
 
 static const char BASE64_ALPHABET[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -182,6 +183,17 @@ static bool process_page(cups_raster_t *ras, cups_page_header2_t *header, buffer
                 width, PRINTER_WIDTH_DOTS);
         width = PRINTER_WIDTH_DOTS;
     }
+    else if (width != PRINTER_WIDTH_DOTS)
+    {
+        /* T03: a narrower-than-expected raster is the "prints too small" failure -
+           it used to pass through silently. Print it (better than nothing) but make
+           the misconfiguration loud in the log so it can't hide again. */
+        fprintf(stderr,
+                "WARN: rastertotmt20iv: page width %u dots != expected %u; ticket will "
+                "print narrow. Check the queue's page size, 203dpi resolution, and "
+                "print-scaling=none (see FACTS.md).\n",
+                width, PRINTER_WIDTH_DOTS);
+    }
 
     row_bytes = (width + 7) / 8;
 
@@ -292,11 +304,24 @@ int main(int argc, char *argv[])
     buffer_t body;
     int fd;
     int status = 0;
+    long copies;
 
     if (argc < 6 || argc > 7)
     {
         fprintf(stderr, "ERROR: Usage: rastertotmt20iv job-id user title copies options [file]\n");
         return 1;
+    }
+
+    /* T02: the PPD declares cupsManualCopies True, so CUPS passes the requested
+       copy count in argv[4] and expects us to produce them. Parse and clamp it. */
+    copies = strtol(argv[4], NULL, 10);
+    if (copies < 1)
+        copies = 1;
+    if (copies > MAX_COPIES)
+    {
+        fprintf(stderr, "WARN: rastertotmt20iv: %ld copies requested, clamping to %d\n",
+                copies, MAX_COPIES);
+        copies = MAX_COPIES;
     }
 
     fd = (argc == 7) ? open(argv[6], O_RDONLY) : 0;
@@ -348,8 +373,17 @@ int main(int argc, char *argv[])
     if (fd != 0)
         close(fd);
 
+    /* T02: `body` is one complete receipt (all pages' images + a trailing feed/cut),
+       so each copy is separately cut. Emit it `copies` times into the single ePOS
+       body the backend POSTs. An empty job (pages == 0) has an empty body, so this
+       writes nothing - correct. */
     if (status == 0)
-        fwrite(buffer_data(&body), 1, buffer_length(&body), stdout);
+    {
+        long c;
+
+        for (c = 0; c < copies; c++)
+            fwrite(buffer_data(&body), 1, buffer_length(&body), stdout);
+    }
 
     buffer_free(&body);
 
