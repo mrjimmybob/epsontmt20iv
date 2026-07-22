@@ -17,6 +17,12 @@ serialize without wedging the printer; T5's cross-host leg (adding the queue fro
 actual second Mint) is deferred until a second machine exists — see
 **CLIENT-INSTALL.md** for the instructions to hand to whoever sets one up.
 
+Since then, two roadmap items are also **done and verified on the unit**: **T01**
+(paper-out / cover / error now reported to CUPS — paper-out confirmed as
+`code="EPTR_REC_EMPTY"`, status bit `0x00080000`; blocked jobs use `CUPS_BACKEND_RETRY`
+so they reprint themselves once paper is reloaded) and **T06** (jobs now render true
+1-bit, `colorspace=3`, 8× less data — the old "sample header" error is gone).
+
 Two problems were found and fixed during the Chrome bring-up. Both are load-bearing:
 - **`print-scaling` must be `none`** — `install.sh` sets it via
   `lpadmin -o print-scaling-default=none`. With CUPS' default (`auto`) every ticket
@@ -34,9 +40,9 @@ matching how any commercial 80 mm thermal PPD works — client HTML/CSS should k
 content inside that ~72 mm effective width (leave ~4 mm each side).
 
 **Known gaps are catalogued in `TASKS.md`.** The driver serves this client correctly;
-that file lists, in priority order, what separates it from a *complete* driver. The
-three that matter most: paper-out is not reported to CUPS (**T01**), copies are
-silently ignored (**T02**), and an unexpected raster width fails silently (**T03**).
+that file lists, in priority order, what separates it from a *complete* driver. With T01
+and T06 now done, the top remaining items are: copies are silently ignored (**T02**) and
+an unexpected raster width fails silently (**T03**) — both still Priority 1.
 
 ## Read in this order:
 1. **FACTS.md** — verified ground truth about the printer. Trust it; do **not** re-test

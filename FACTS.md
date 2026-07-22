@@ -23,9 +23,21 @@ these and not spend print-tests rediscovering them.
   ready), `SchemaError` (invalid/unsupported XML).
 - A healthy print reply looks like:
   `<response success="true" code="" status="251658262" battery="0" .../>`
-- The `status` attribute is the Epson **ASB bitmask**: `251658262` = `0x0F000016` is
-  healthy; `1` means the mechanism gave no response (wedged). Decoding it into CUPS
-  printer-state reasons (paper-out, cover-open) is **TASKS.md → T01**.
+- The `status` attribute is the Epson **ASB bitmask**. Decoding it into CUPS
+  printer-state reasons is implemented in `src/status.c` (**TASKS.md → T01, done**).
+- **Confirmed status values (measured on the unit by direct `curl`):**
+
+  | Condition | `success` | `code` | `status` (dec / hex) |
+  |-----------|-----------|--------|----------------------|
+  | healthy (paper in) | true  | *(empty)*        | 251658262 / `0x0F000016` (print-success `0x02` set) |
+  | paper out          | false | `EPTR_REC_EMPTY` | 252444700 / `0x0F0C001C` (**paper-end `0x00080000` set**, print-success cleared, offline `0x08` set) |
+  | wedged mechanism   | false | `EX_TIMEOUT`     | `1` (`ASB_NO_RESPONSE`) |
+
+  So `0x00080000` = receipt paper end is the confirmed paper-out bit. Cover-open
+  (`0x20`) and cutter/mechanical bits are from Epson's SDK but **not yet physically
+  confirmed on this unit**. The printer also gives a clean `code` string on failure
+  (`EPTR_REC_EMPTY`, and per Epson `EPTR_COVER_OPEN`, `EPTR_AUTOMATICAL`,
+  `EPTR_UNRECOVERABLE`, …) — more explicit than bit-decoding (see T01-followup).
 
 ## TLS
 - Cert is **self-signed**, `CN=EPSOND400E6`. Its SAN lists the **factory** IP
@@ -67,18 +79,22 @@ these and not spend print-tests rediscovering them.
   scaling pages to fit"*, and — compounded by a US-Letter fallback — shrank tickets to
   roughly **25%**. The symptom is a perfectly correct but tiny receipt. This cost a day
   to find.
-- **Observed raster at the filter:** `576 x 7984, 8 bpp, colorspace=18` (that height was
-  the old 1000 mm page). The 576 confirms the 80 mm / 203 dpi geometry is correct.
-- `colorspace=18` is `CUPS_CSPACE_SW` (sGray, **0 = black**), so the filter's
-  `line[x] < 128 ⇒ black` threshold is right for it.
-- **The PPD's `ColorModel` is currently ignored.** Every job logs
-  `E ppdFilterLoadPPD: Unable to generate CUPS Raster sample header.`, so Ghostscript
-  renders 8-bit sGray instead of the declared 1-bit K — 8× the data for identical
-  output. See TASKS.md → T06.
-- **`cupstestppd -v ppd/tmt20iv.ppd` reports NO ERRORS** (only a cosmetic warning that
-  the size "should" be named `80x999.77mm`). The PPD is conformant — so the sample-header
-  failure is something `cupsRasterInterpretPPD()` specifically dislikes, not a
-  conformance problem.
+- **Observed raster at the filter (current):** `576 x 1439, 1 bpp, colorspace=3,
+  bytes/line=72` — the true 1-bit K the PPD declares. The 576 confirms the 80 mm /
+  203 dpi geometry; 1439 rows is the sample PDF's own 510 pt (180 mm) page at 203 dpi.
+  (Earlier it was `8 bpp, colorspace=18, 576 bytes/line` — see next bullet.)
+- `colorspace=3` is `CUPS_CSPACE_K` (1 = black), matching what ePOS `<image>` wants, so
+  the filter's 1-bit path copies rows straight through (no inversion). For the legacy
+  8-bit case, `colorspace=18` is `CUPS_CSPACE_SW` (sGray, 0 = black) and the
+  `line[x] < 128 ⇒ black` threshold handles it. Both polarities are correct.
+- **T06 RESOLVED — the PPD's `ColorModel` is now honoured.** The
+  `E ppdFilterLoadPPD: Unable to generate CUPS Raster sample header.` error is gone
+  (`grep -c "sample header" /var/log/cups/error_log` = 0) and jobs render 1-bit as
+  above (8× less data). It cleared alongside the page-geometry work (jobs now render at
+  their own media size). `cupstestppd -v ppd/tmt20iv.ppd` reports NO ERRORS (only a
+  cosmetic size-name warning), so if the error ever returns it's a
+  `cupsRasterInterpretPPD()` quirk, not a conformance problem — TASKS.md T06 has the
+  bisection plan.
 - **Chrome's print preview shows the PPD's declared page height**, not the trimmed
   output. The page was shortened from 1000 mm to **300 mm (`850.39 pt`)** so the preview
   isn't an absurd ribbon. Blank-trimming still means short tickets waste no paper.

@@ -22,12 +22,12 @@ re-testing things already proven.
 ## Summary
 | ID | Name | Pri | One-liner | Done |
 |----|------|-----|-----------|------|
-| T01 | PAPER-STATUS | 1 | Report paper-out / cover-open to CUPS instead of a generic failure | ☐ |
+| T01 | PAPER-STATUS | 1 | Report paper-out / cover-open to CUPS instead of a generic failure | ✅ |
 | T02 | COPIES | 1 | `-n 3` currently prints one ticket, silently | ☐ |
 | T03 | WIDTH-GUARD | 1 | Warn when raster width ≠ 576 so tiny-print can't silently return | ☐ |
 | T04 | CUT-AND-DRAWER | 2 | Expose cut mode + cash-drawer kick as PPD options | ☐ |
 | T05 | PAPER-WIDTH | 2 | Support 58 mm rolls, not just 80 mm | ☐ |
-| T06 | RASTER-HEADER | 2 | Fix the PPD sample-header error → true 1-bit rendering (8× less data) | ☐ |
+| T06 | RASTER-HEADER | 2 | Fix the PPD sample-header error → true 1-bit rendering (8× less data) | ✅ |
 | T07 | CHUNK-LIMIT | 2 | Measure the printer's real max `<image>` height instead of guessing 256 | ☐ |
 | T08 | DEBUG-GEOMETRY | 2 | Log resolution + page height in the filter's DEBUG line | ☐ |
 | T09 | DISCOVERY | 3 | Real network discovery so the printer appears in "Add Printer" | ☐ |
@@ -48,16 +48,36 @@ re-testing things already proven.
 - The cut is emitted **once per job** in `main()` (the per-page cut in `process_page()`
   is commented out), so a paginated receipt prints continuously with one cut.
 - PPD page height is 300 mm (`850.39 pt`), which keeps Chrome's print preview sane.
+- **T01 (paper/cover/error → CUPS state)** — implemented, unit-tested, verified on the
+  unit. Blocked state → `CUPS_BACKEND_RETRY` (auto-recovers on paper reload).
+- **T06 (1-bit rendering)** — resolved; jobs now render `1 bpp, colorspace=3`.
+- Compiled binaries untracked + `.gitattributes eol=lf` added (**T15** — partially done;
+  `.claude/` ignore still worth checking).
 
 ---
 
 # Priority 1
 
-## T01 — PAPER-STATUS · Report printer state to CUPS
-**Why.** A POS printer runs out of paper constantly. Today a paper-out looks like a
-generic failure: staff see nothing useful and the job may be lost. The printer already
-tells us — the ePOS reply carries `status="N"`, an Epson ASB (Automatic Status Back)
-bitmask. This is the single highest-value improvement in the list.
+## T01 — PAPER-STATUS · Report printer state to CUPS  ✅ DONE
+**Implemented and verified against the real printer.** `src/status.c` / `src/status.h`
+decode the ASB bitmask; `epos_backend.c` emits CUPS `STATE:` reasons and picks the exit
+code; `tests/test_status.c` (run via `make test`) covers the decode logic. Confirmed A/B
+on the unit by direct `curl`:
+
+| Paper | `success` | `code` | `status` (dec / hex) |
+|-------|-----------|--------|----------------------|
+| in    | true  | *(empty)*        | 251658262 / `0x0F000016` (print-success bit set, no errors) |
+| out   | false | `EPTR_REC_EMPTY` | 252444700 / `0x0F0C001C` (**paper-end `0x00080000` set**, print-success cleared, offline `0x08` set) |
+
+So the `0x00080000` mask is correct → paper-out raises `STATE: +media-empty-error` and
+CUPS shows "out of paper". The blocked-state exit code is **`CUPS_BACKEND_RETRY`** (was
+STOP): the job waits with the reason visible and prints itself when paper is reloaded, no
+manual `cupsenable`. Cover-open (`0x20`) and cutter/mechanical bits are **not yet
+physically confirmed** — see the T01-followup note below if you want them bulletproof.
+
+**Why (original).** A POS printer runs out of paper constantly. Before this, a paper-out
+looked like a generic failure: staff saw nothing useful and the job could be lost. The
+ePOS reply carries `status="N"`, an Epson ASB (Automatic Status Back) bitmask.
 
 **Where.** `src/epos_backend.c` — the result mapping block near the end of `main()`
 (currently: success → `CUPS_BACKEND_OK`, `EX_TIMEOUT` → `RETRY`, else `FAILED`). The
@@ -108,6 +128,15 @@ held job prints when paper is restored.
 
 **References.** FACTS.md → "ePOS endpoint" (response shape). `cups/backend.h` for exit
 codes.
+
+**T01-followup (optional robustness, Pri 3).** The printer also returns an explicit
+`code="EPTR_REC_EMPTY"` on failure — a documented Epson error identifier, cleaner than
+bit-guessing. Add a `code`-based path in `status.c` to complement the bitmask:
+`EPTR_REC_EMPTY`→media-empty, `EPTR_COVER_OPEN`→cover-open,
+`EPTR_AUTOMATICAL`/`EPTR_MECHANICAL`/`EPTR_UNRECOVERABLE`→other-error. Keep the bitmask
+for the *near-end warning* (`0x00020000`), which stays `success="true"` and so carries no
+`code`. Benefit: cover-open and cutter errors work without having to physically confirm
+each bit (only paper-end `0x80000` has been confirmed on the unit so far).
 
 ---
 
@@ -191,12 +220,20 @@ clipping, no warning.
 
 ---
 
-## T06 — RASTER-HEADER · Fix the PPD sample-header error
-**Why.** Every job logs `E ppdFilterLoadPPD: Unable to generate CUPS Raster sample
-header.` The consequence is that the PPD's `ColorModel` (1-bit, `cupsColorSpace 3`) is
-ignored and Ghostscript renders 8-bit sGray (`colorspace=18`) instead — 576 bytes/line
-where 72 would do, for byte-identical output. Output is correct today; this is pure
-waste plus an error in the log that masks real ones.
+## T06 — RASTER-HEADER · Fix the PPD sample-header error  ✅ DONE
+**Resolved.** The filter now receives the true 1-bit raster the PPD asks for:
+`rastertotmt20iv: page 576x1439 (emit width 576), 1 bpp, colorspace=3, bytes/line=72`
+(was `8 bpp, colorspace=18, bytes/line=576`), and `grep -c "sample header"
+/var/log/cups/error_log` returns 0 for current jobs. Output verified visually identical
+("receipt looks fine"). This was the first time the filter's 1-bit path ran in
+production — confirmed good, no inversion. 8× less data per job. It cleared up alongside
+the page-geometry work (the job now renders at its own media size); if the
+`sample header` error ever returns, the notes below are the bisection plan.
+
+**Why (original).** Every job used to log `E ppdFilterLoadPPD: Unable to generate CUPS
+Raster sample header.`, so the PPD's `ColorModel` (1-bit, `cupsColorSpace 3`) was ignored
+and Ghostscript rendered 8-bit sGray (`colorspace=18`) — 576 bytes/line where 72 would
+do, for byte-identical output.
 
 **Where.** `ppd/tmt20iv.ppd`.
 
