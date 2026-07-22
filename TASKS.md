@@ -23,8 +23,8 @@ re-testing things already proven.
 | ID | Name | Pri | One-liner | Done |
 |----|------|-----|-----------|------|
 | T01 | PAPER-STATUS | 1 | Report paper-out / cover-open to CUPS instead of a generic failure | ✅ |
-| T02 | COPIES | 1 | `-n 3` currently prints one ticket, silently | ☐ |
-| T03 | WIDTH-GUARD | 1 | Warn when raster width ≠ 576 so tiny-print can't silently return | ☐ |
+| T02 | COPIES | 1 | `-n 3` currently prints one ticket, silently | ✅ |
+| T03 | WIDTH-GUARD | 1 | Warn when raster width ≠ 576 so tiny-print can't silently return | ✅ |
 | T04 | CUT-AND-DRAWER | 2 | Expose cut mode + cash-drawer kick as PPD options | ☐ |
 | T05 | PAPER-WIDTH | 2 | Support 58 mm rolls, not just 80 mm | ☐ |
 | T06 | RASTER-HEADER | 2 | Fix the PPD sample-header error → true 1-bit rendering (8× less data) | ✅ |
@@ -45,11 +45,14 @@ re-testing things already proven.
 ## Already done — do not redo
 - `print-scaling-default=none` is set in `install.sh`. **Never remove it** — without it
   pdftopdf shrinks every ticket to ~25%. See FACTS.md.
-- The cut is emitted **once per job** in `main()` (the per-page cut in `process_page()`
-  is commented out), so a paginated receipt prints continuously with one cut.
+- The cut is emitted **once per page** in `process_page()`. CUPS makes copies by
+  duplicating the page (`cupsManualCopies: True`), so per-page = per-copy cut (T02). Do
+  NOT add an `argv[4]` copies loop in the filter — that double-counts (the 3×3=9 bug).
 - PPD page height is 300 mm (`850.39 pt`), which keeps Chrome's print preview sane.
 - **T01 (paper/cover/error → CUPS state)** — implemented, unit-tested, verified on the
   unit. Blocked state → `CUPS_BACKEND_RETRY` (auto-recovers on paper reload).
+- **T02 (copies)** — CUPS duplicates pages; filter cuts per page; no filter-side loop.
+- **T03 (width guard)** — dormant `WARN` on width != 576.
 - **T06 (1-bit rendering)** — resolved; jobs now render `1 bpp, colorspace=3`.
 - Compiled binaries untracked + `.gitattributes eol=lf` added (**T15** — partially done;
   `.claude/` ignore still worth checking).
@@ -140,11 +143,19 @@ each bit (only paper-end `0x80000` has been confirmed on the unit so far).
 
 ---
 
-## T02 — COPIES · Honour the requested copy count
-**Why.** A real bug producing silently wrong output. `ppd/tmt20iv.ppd` declares
-`*cupsManualCopies: True`, which tells CUPS *"the driver will produce copies itself"* —
-but `src/rastertotmt20iv.c` never reads `argv[4]` (the copies count). `lp -n 3` prints
-one ticket and reports success.
+## T02 — COPIES · Honour the requested copy count  ✅ DONE
+**Verified on the unit: `lp -n 3` → 3 receipts, 3 cuts.** The fix was *not* what the
+"What to do" below assumed. `*cupsManualCopies: True` means **CUPS already makes the
+copies by duplicating the page**, so the filter receives N pages — it must NOT multiply.
+The final shape: PPD stays `cupsManualCopies: True`; the filter emits each page it is
+given with a **per-page cut** (`process_page`), so each duplicated copy is separately
+cut; there is **no `argv[4]` loop** (an earlier attempt multiplied on top of CUPS's
+duplication → 3×3 = 9 receipts; then flipping the PPD to `False` disabled duplication →
+1 receipt; `True` + no loop = correct). Note this reverted the earlier once-per-job cut
+(FACTS.md updated) — safe because a receipt is a single-page job.
+
+**Why (original).** `lp -n 3` used to print one ticket: the filter never produced copies
+and the PPD's copy semantics weren't wired to anything.
 
 **Where.** `src/rastertotmt20iv.c` `main()` (argument handling + the emit at the end);
 `ppd/tmt20iv.ppd` line with `*cupsManualCopies`.
@@ -162,11 +173,17 @@ tickets, three clean cuts, one job in `lpstat`.
 
 ---
 
-## T03 — WIDTH-GUARD · Fail loudly on unexpected raster width
-**Why.** `process_page()` warns only when the raster is *wider* than 576 dots and
-clamps. When it arrives **narrower** it is emitted as-is, and the printer centres a
-small image on the paper — silently. That is exactly how the "prints too small" bug hid
-for a day; it should never be able to hide again.
+## T03 — WIDTH-GUARD · Fail loudly on unexpected raster width  ✅ DONE
+**Implemented** — `process_page()` now has an `else if (width != PRINTER_WIDTH_DOTS)`
+branch logging a loud `WARN:` (received vs expected 576, plus the likely cause:
+page-size / 203 dpi / `print-scaling=none`). It still prints (narrow beats nothing) but
+can no longer hide. It's a **dormant guard** — silent in normal operation (every real
+job is 576 wide), so there's nothing to see unless something regresses. To exercise it
+deliberately, print a PDF whose page is < 80 mm wide and check the log for `!= expected`.
+
+**Why (original).** The width check only caught *too-wide* rasters; a *narrower* one was
+emitted as-is and the printer centred a small image — exactly how the "prints too small"
+bug hid for a day.
 
 **Where.** `src/rastertotmt20iv.c` `process_page()`, the existing
 `if (width > PRINTER_WIDTH_DOTS)` block (~line 179).

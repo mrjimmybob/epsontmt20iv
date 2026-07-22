@@ -98,9 +98,12 @@ these and not spend print-tests rediscovering them.
 - **Chrome's print preview shows the PPD's declared page height**, not the trimmed
   output. The page was shortened from 1000 mm to **300 mm (`850.39 pt`)** so the preview
   isn't an absurd ribbon. Blank-trimming still means short tickets waste no paper.
-- **The cut is emitted once per JOB** (in `main()`; the per-page cut in `process_page()`
-  is commented out), so a receipt that paginates prints continuously with a single cut.
-  Do not move it back.
+- **The cut is emitted once per PAGE** (in `process_page()`). CUPS produces copies by
+  duplicating the page (`*cupsManualCopies: True`), so a per-page cut gives one
+  separately-cut receipt per copy — that's how T02 works. A receipt is a single-page
+  job, so this never slices a logical receipt. (It was briefly once-per-job; that made
+  `-n 3` print 3 stuck-together receipts with one cut, and multiplying in the filter on
+  top of CUPS's duplication gave the 3×3=9 bug — see T02.)
 - **End-to-end verified:** Chrome → Ctrl+P → queue `TMT20IV-ttp` prints
   `sample_receipt_80mm.pdf` (logo, table, barcode, QR) at full width with a clean cut.
 

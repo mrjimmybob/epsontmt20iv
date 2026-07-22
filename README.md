@@ -29,9 +29,10 @@ Two problems were found and fixed during the Chrome bring-up. Both are load-bear
   `lpadmin -o print-scaling-default=none`. With CUPS' default (`auto`) every ticket
   printed at roughly **25% size**. Never remove that line; see FACTS.md for the
   mechanism.
-- **The page is 300 mm and the cut is emitted once per job**, not per page. The old
-  1000 mm page turned Chrome's print preview into an absurd ribbon, and a per-page cut
-  would slice any receipt long enough to paginate.
+- **The page is 300 mm** — the old 1000 mm page turned Chrome's print preview into an
+  absurd ribbon. The cut is emitted **once per page** (`process_page`); since CUPS makes
+  copies by duplicating the page, that gives one cut per copy (T02), and a receipt is a
+  single-page job so nothing gets sliced.
 
 The filter trims blank leading/trailing raster rows, so any ticket length prints
 correctly with a single clean cut and the calling app never has to choose a page or
@@ -41,9 +42,9 @@ matching how any commercial 80 mm thermal PPD works — client HTML/CSS should k
 content inside that ~72 mm effective width (leave ~4 mm each side).
 
 **Known gaps are catalogued in `TASKS.md`.** The driver serves this client correctly;
-that file lists, in priority order, what separates it from a *complete* driver. With T01
-and T06 now done, the top remaining items are: copies are silently ignored (**T02**) and
-an unexpected raster width fails silently (**T03**) — both still Priority 1.
+that file lists, in priority order, what separates it from a *complete* driver. **All
+Priority-1 items (T01–T03) and T06 are now done** — the remaining work is Priority 2 and
+below (cut/drawer options, 58 mm support, chunk-limit measurement, discovery, dither, …).
 
 ## Read in this order:
 1. **FACTS.md** — verified ground truth about the printer. Trust it; do **not** re-test
