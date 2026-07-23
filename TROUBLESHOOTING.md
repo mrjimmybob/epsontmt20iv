@@ -6,6 +6,8 @@ Epson TM-T20IV thermal ticket printer, printed to through the CUPS queue
 There are two parts: things **anyone at the shop** can check (no commands), and a
 short triage sequence **for the technician**.
 
+*(Versión en español: TROUBLESHOOTING.es.md)*
+
 ---
 
 # Part 1 — Anyone can check (no commands needed)
