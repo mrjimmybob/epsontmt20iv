@@ -14,7 +14,9 @@
 #include "buffer.h"
 
 /* Tuning knobs (also referenced by the filter and the tests). */
-#define CHUNK_ROWS         256  /* rows per <image> strip */
+#define CHUNK_ROWS        1024  /* rows per <image> strip. T07 confirmed a single
+                                   request of >=3600 dots (~450mm, ~338KB) prints, so
+                                   1024 is a safe margin and cuts the chunk count 4x. */
 #define INVERT_BITS          0  /* flip to 1 if output prints inverted */
 #define PRINTER_WIDTH_DOTS 576  /* 80mm @ 203dpi printable width, per FACTS.md */
 #define TRIM_PAD_ROWS       24  /* ~3mm blank kept after the last ink row */
