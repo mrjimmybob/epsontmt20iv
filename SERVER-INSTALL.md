@@ -22,7 +22,50 @@ same printer at once - see note at the end.
 
 ## Install
 
-1. Copy this whole `epsontm20iv/` folder onto the server machine.
+Two ways. **Option A (.deb) is preferred** for a real deployment - proper
+dependency handling, versioning and a clean `apt remove`. Option B is the
+from-source route, handy while developing.
+
+### Option A - install the .deb (recommended)
+
+If you were handed `epsontmt20iv_<version>_amd64.deb`:
+
+```bash
+sudo apt install /path/to/epsontmt20iv_1.0.0_amd64.deb
+```
+apt pulls in `cups`, `cups-filters` and `ghostscript` automatically. (Keep the
+file somewhere like `/tmp` to avoid a harmless "not accessible by user _apt"
+note when installing from your home directory.)
+
+The package installs the driver **only** - it deliberately does not create the
+queue, because the queue carries the printer's IP. Create it once:
+
+```bash
+sudo lpadmin -p TMT20IV-ttp -E \
+     -v epos://<printer-ip> \
+     -P /usr/share/ppd/epsont20iv/tmt20iv.ppd \
+     -o printer-is-shared=true \
+     -o print-scaling-default=none
+sudo cupsctl _share_printers=1
+```
+
+`print-scaling-default=none` is **not optional** - without it every ticket
+prints at roughly 25% size.
+
+To build the .deb yourself from a checkout:
+```bash
+sudo apt install -y build-essential debhelper devscripts dpkg-dev \
+                    libcups2-dev libcupsimage2-dev libcurl4-openssl-dev pkg-config
+dpkg-buildpackage -us -uc -b        # produces ../epsontmt20iv_*.deb
+```
+The build runs the unit tests (`make test`) and fails if they don't pass.
+
+Remove with `sudo apt remove epsontmt20iv` (this deletes the filter/backend/PPD,
+so the queue stops working until you reinstall).
+
+### Option B - build and install from source
+
+1. Copy this whole `epsontmt20iv/` folder onto the server machine.
 2. Install build dependencies:
    ```bash
    sudo apt update
@@ -31,7 +74,7 @@ same printer at once - see note at the end.
    ```
 3. Run the installer, passing the printer's IP address:
    ```bash
-   cd epsontm20iv
+   cd epsontmt20iv
    sudo ./install.sh <printer-ip>
    ```
    Example: `sudo ./install.sh 192.168.1.50`

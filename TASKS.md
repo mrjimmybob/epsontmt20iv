@@ -37,7 +37,7 @@ re-testing things already proven.
 | T13 | PAGE-SIZES | 3 | Offer several named page lengths | ☐ |
 | T14 | STREAMING | 3 | Stream strips instead of buffering the whole page | ☐ |
 | T15 | REPO-HYGIENE | 3 | Stop tracking build artifacts; ignore `.claude/` | ✅ |
-| T16 | PACKAGING | 4 | `.deb`, driver-database entry, man page, versioning | ☐ |
+| T16 | PACKAGING | 4 | `.deb`, driver-database entry, man page, versioning | ✅ |
 | T17 | TLS-TRUST | 4 | Optional real certificate validation | ☐ |
 | T18 | I18N | 4 | Spanish PPD option translations | ☐ |
 | T19 | DRIVERLESS | 4 | IPP Everywhere shim so clients need no queue setup | ☐ |
@@ -60,6 +60,8 @@ re-testing things already proven.
 - **T12 (tests)** — raster core factored into `src/raster.c`/`.h`; `make test` runs
   `test_status` + `test_raster` (pure, no CUPS/curl). Keep them green.
 - **T15 (repo hygiene)** — binaries untracked, `.gitattributes eol=lf`, `.claude/` ignored.
+- **T16 (packaging, core)** — `debian/` builds `epsontmt20iv_1.0.0_amd64.deb`; Makefile
+  has DESTDIR `install`. Queue creation stays manual (one `lpadmin` line).
 
 ---
 
@@ -436,10 +438,28 @@ this repo round-trips through Windows and CRLF already broke `install.sh` once (
 
 # Priority 4 — only if this ships beyond this client
 
-## T16 — PACKAGING
-Build a `.deb` (filter, backend, PPD, postinst running `lpadmin`), add a `.drv`/PPD
-database entry so the model appears in the CUPS Make/Model list instead of needing a
-PPD file path, add a man page and a version string (currently none anywhere).
+## T16 — PACKAGING  ✅ DONE (core)
+**Built and installed.** `debian/` provides a native package `epsontmt20iv 1.0.0`
+(`control`, `changelog`, `rules`, `postinst`, `README.Debian`, `copyright`,
+`source/format`), and the Makefile gained a DESTDIR-aware `install`/`uninstall` target
+so `dh_auto_install` works. Build with `dpkg-buildpackage -us -uc -b`, install with
+`sudo apt install ./epsontmt20iv_1.0.0_amd64.deb` (deps auto-resolved). Distribution
+model is **A: hand over the .deb** (no apt repo / GPG signing) — enough for a
+single print server; see SERVER-INSTALL.md.
+
+Design points worth remembering:
+- `postinst` installs the driver **only**; it does not create the queue (the queue
+  needs the site's printer IP) — it prints the `lpadmin` line instead.
+- `debian/rules` re-applies `chmod 0700` to the backend after `dh_fixperms`, which
+  would otherwise relax it to 0755 and change which user CUPS runs it as.
+- `dh_auto_test` runs `make test`, so the unit tests gate the package build. This
+  already caught a real drift (a `CHUNK_ROWS` change committed without its header).
+- Windows `core.filemode=false` means `debian/rules` must be forced executable in git
+  (`git update-index --chmod=+x debian/rules`) or the build fails on Linux.
+
+**Still open (the rest of the original T16):** a `.drv`/PPD database entry so the model
+appears in the CUPS Make/Model list instead of needing a PPD path, a man page, and a
+version string in the binaries (`--version`).
 
 ## T17 — TLS-TRUST
 TLS verification is unconditionally off (correct today — the cert's SAN carries the
