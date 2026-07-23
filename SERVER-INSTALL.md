@@ -96,6 +96,33 @@ lpstat -p TMT20IV-ttp -l
 tail -f /var/log/cups/error_log
 ```
 
+## Recommended: widen the retry window (paper-out)
+
+When the printer is out of paper or the cover is open, the driver reports the
+condition to CUPS and asks it to **retry** the job rather than discard it - so
+the ticket prints by itself once paper is reloaded. How long it will wait is a
+CUPS setting, and the defaults are short: `JobRetryLimit 5` and
+`JobRetryInterval 30` give up after only **~2.5 minutes**, after which the
+ticket is abandoned.
+
+In a shop that's easily long enough to lose a customer's ticket. Widen it in
+`/etc/cups/cupsd.conf`:
+
+```
+JobRetryInterval 60
+JobRetryLimit 60
+```
+
+That's roughly an hour of grace. Then:
+
+```bash
+sudo systemctl restart cups
+```
+
+Pick whatever window suits the site - the point is not to leave it at 2.5
+minutes. Use a generous finite number rather than `0`, whose meaning varies
+between CUPS versions.
+
 ## Changing the printer's IP
 
 If the printer moves to a different address later, update the queue in one

@@ -88,3 +88,6 @@ network will be different.** Nothing hardcodes IPs:
 - `TASKS.md` — prioritised roadmap of outstanding work (T01–T19).
 - `SERVER-INSTALL.md` — hand-off instructions for installing on the print-server.
 - `CLIENT-INSTALL.md` — hand-off instructions for adding the shared queue on other Mints.
+- `TROUBLESHOOTING.md` — on-site fault-finding: a no-commands section for shop staff
+  and a triage sequence for the technician.
+- `debian/` — packaging for the standalone `.deb` (see SERVER-INSTALL.md).
