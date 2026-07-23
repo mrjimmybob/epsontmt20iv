@@ -1,0 +1,53 @@
+epsontmt20iv for Debian/Ubuntu/Mint
+===================================
+
+This package installs the driver only. It deliberately does NOT create a print
+queue, because the queue has to carry the printer's IP address, which differs
+per site.
+
+Creating the queue (once, on the print server)
+----------------------------------------------
+
+    sudo lpadmin -p TMT20IV-ttp -E \
+         -v epos://<printer-ip> \
+         -P /usr/share/ppd/epsont20iv/tmt20iv.ppd \
+         -o printer-is-shared=true \
+         -o print-scaling-default=none
+    sudo cupsctl _share_printers=1
+
+Replace <printer-ip> with the printer's address (e.g. 192.168.1.50).
+
+IMPORTANT: `print-scaling-default=none` is not optional. With CUPS' default
+(`auto`), every ticket prints at roughly 25% size.
+
+Check it:
+
+    lpstat -p TMT20IV-ttp
+    lp -d TMT20IV-ttp /usr/share/cups/data/testprint
+
+Other machines
+--------------
+
+Client PCs do NOT need this package. They just add the shared queue:
+
+    lpadmin -p tickets -E -v ipp://<print-server>/printers/TMT20IV-ttp
+
+Rendering happens on the server, so no driver is needed client-side.
+
+Files
+-----
+
+  /usr/lib/cups/filter/rastertotmt20iv   page raster -> ePOS <image> XML
+  /usr/lib/cups/backend/epos             POSTs the job to the printer (HTTPS)
+  /usr/share/ppd/epsont20iv/tmt20iv.ppd  80 mm roll, 576 dots @ 203 dpi
+
+Notes
+-----
+
+The backend skips TLS verification: the printer ships a self-signed certificate
+whose SAN carries Epson's factory IP, not the real one. Only the print server
+talks to the printer, so this is contained and invisible to clients.
+
+Paper-out, cover-open and mechanism errors are reported to CUPS as standard
+printer-state reasons, and a blocked job is retried rather than discarded - it
+prints by itself once paper is reloaded.

@@ -10,7 +10,14 @@ SRC = src
 FILTER      = rastertotmt20iv
 BACKEND     = epos
 
-.PHONY: all clean test
+# Install locations. DESTDIR is honoured so debhelper can stage into debian/<pkg>/.
+DESTDIR        ?=
+prefix         ?= /usr
+CUPSFILTERDIR  ?= $(prefix)/lib/cups/filter
+CUPSBACKENDDIR ?= $(prefix)/lib/cups/backend
+PPDDIR         ?= $(prefix)/share/ppd/epsont20iv
+
+.PHONY: all clean test install uninstall
 
 all: $(FILTER) $(BACKEND)
 
@@ -32,6 +39,19 @@ tests/test_status: tests/test_status.c $(SRC)/status.c
 
 tests/test_raster: tests/test_raster.c $(SRC)/raster.c $(SRC)/buffer.c
 	$(CC) $(CFLAGS) -I$(SRC) -o $@ tests/test_raster.c $(SRC)/raster.c $(SRC)/buffer.c
+
+# Stage the driver. The backend is 0700 because CUPS then runs it as root; the
+# .deb re-applies this after dh_fixperms (see debian/rules).
+install: all
+	install -d $(DESTDIR)$(CUPSFILTERDIR) $(DESTDIR)$(CUPSBACKENDDIR) $(DESTDIR)$(PPDDIR)
+	install -m 0755 $(FILTER) $(DESTDIR)$(CUPSFILTERDIR)/$(FILTER)
+	install -m 0700 $(BACKEND) $(DESTDIR)$(CUPSBACKENDDIR)/$(BACKEND)
+	install -m 0644 ppd/tmt20iv.ppd $(DESTDIR)$(PPDDIR)/tmt20iv.ppd
+
+uninstall:
+	rm -f $(DESTDIR)$(CUPSFILTERDIR)/$(FILTER)
+	rm -f $(DESTDIR)$(CUPSBACKENDDIR)/$(BACKEND)
+	rm -f $(DESTDIR)$(PPDDIR)/tmt20iv.ppd
 
 clean:
 	rm -f $(FILTER) $(BACKEND) tests/test_status tests/test_raster

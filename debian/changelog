@@ -1,0 +1,9 @@
+epsontmt20iv (1.0.0) unstable; urgency=medium
+
+  * Initial packaged release.
+  * CUPS raster filter (rastertotmt20iv) rendering pages to ePOS <image> strips.
+  * CUPS backend (epos) POSTing jobs to the printer over HTTPS, reporting
+    paper-out/cover-open to CUPS and retrying so jobs survive a paper reload.
+  * PPD for the 80 mm roll (576 dots @ 203 dpi).
+
+ -- Valper Soluciones y Mantenimientos S.L. <soporte.externos@valpersoluciones.com>  Wed, 22 Jul 2026 12:00:00 +0100

@@ -1,0 +1,27 @@
+#!/bin/sh
+# postinst - install the driver files only. The print queue is NOT created here:
+# it needs the printer's IP, which differs per site. See README.Debian.
+set -e
+
+case "$1" in
+    configure)
+        # Let cupsd pick up the new filter/backend. try-restart is a no-op if
+        # CUPS is not running, and does not start it if it was stopped.
+        if [ -d /run/systemd/system ]; then
+            systemctl try-restart cups.service >/dev/null 2>&1 || true
+        fi
+
+        if [ -z "$2" ]; then
+            # First install only - point the admin at the one remaining step.
+            echo "epsontmt20iv: driver installed. Create the queue with:"
+            echo "  sudo lpadmin -p TMT20IV-ttp -E -v epos://<printer-ip> \\"
+            echo "       -P /usr/share/ppd/epsont20iv/tmt20iv.ppd \\"
+            echo "       -o printer-is-shared=true -o print-scaling-default=none"
+            echo "See /usr/share/doc/epsontmt20iv/README.Debian for details."
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

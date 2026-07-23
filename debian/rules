@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+# Build with: dpkg-buildpackage -us -uc -b
+
+%:
+	dh $@
+
+# CUPS runs a backend as root only if it is not group/world readable. The
+# upstream Makefile installs it 0700; dh_fixperms would relax that to 0755, so
+# re-apply it afterwards.
+override_dh_fixperms:
+	dh_fixperms
+	chmod 0700 debian/epsontmt20iv/usr/lib/cups/backend/epos

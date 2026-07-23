@@ -67,8 +67,12 @@ these and not spend print-tests rediscovering them.
 - `width` = dots per line (≤ printable width). `height` = number of raster lines.
 - Element text = **base64** of the packed buffer.
 - Multiple `<image>` elements **stack vertically** — a long receipt is sent as several
-  strips. There is a practical max height per request; currently chunked at 256 lines,
-  which was a **guess and has never been measured** — see TASKS.md → T07.
+  strips, all in one POST. **Request-size ceiling (T07, measured):** a single request of
+  **≥ 3600 dots at 576 wide** (~450 mm, ~338 KB XML) prints fine — larger than any
+  realistic ticket, so a whole receipt goes in one POST. The true max is higher (not
+  probed, to save paper). `CHUNK_ROWS` is **1024** (comfortable margin; was a guessed
+  256). A receipt taller than the true ceiling would need splitting across POSTs — not
+  implemented, and not needed for real tickets.
 - **Printable width for 80 mm @ 203 dpi = 576 dots** (72 mm) — CONFIRMED in production.
 
 ## CUPS pipeline facts (confirmed during the Chrome bring-up)

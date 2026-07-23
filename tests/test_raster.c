@@ -134,15 +134,15 @@ static void test_render(void)
         buffer_free(&b); free(p);
     }
 
-    /* 600 inked rows -> chunked 256 + 256 + 88 */
+    /* 2500 inked rows -> chunked CHUNK_ROWS(1024) + 1024 + 452 */
     {
-        unsigned char *p = malloc(600);
-        memset(p, 0xFF, 600);
+        unsigned char *p = malloc(2500);
+        memset(p, 0xFF, 2500);
         buffer_init(&b);
-        render_page_body(&b, p, 8, 600, 1);
-        CHECK(count_substr(buffer_data(&b), "<image") == 3, "600 rows -> 3 chunks");
-        CHECK(strstr(buffer_data(&b), "height=\"256\"") != NULL, "chunk height 256 present");
-        CHECK(strstr(buffer_data(&b), "height=\"88\"") != NULL, "last chunk height 88");
+        render_page_body(&b, p, 8, 2500, 1);
+        CHECK(count_substr(buffer_data(&b), "<image") == 3, "2500 rows -> 3 chunks");
+        CHECK(strstr(buffer_data(&b), "height=\"1024\"") != NULL, "chunk height 1024 present");
+        CHECK(strstr(buffer_data(&b), "height=\"452\"") != NULL, "last chunk height 452");
         buffer_free(&b); free(p);
     }
 }

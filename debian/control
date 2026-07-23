@@ -1,0 +1,28 @@
+Source: epsontmt20iv
+Section: utils
+Priority: optional
+Maintainer: Valper Soluciones y Mantenimientos S.L. <admin@example.com>
+Build-Depends: debhelper-compat (= 13),
+               libcups2-dev,
+               libcupsimage2-dev,
+               libcurl4-openssl-dev,
+               pkg-config
+Standards-Version: 4.6.2
+Homepage: https://github.com/mrjimmybob/epsontmt20iv
+
+Package: epsontmt20iv
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, cups, cups-filters, ghostscript
+Description: CUPS thermal driver for the Epson TM-T20IV (ePOS over HTTPS)
+ Prints 80 mm thermal tickets to an Epson TM-T20IV. This printer only accepts
+ Epson's ePOS-Print protocol over HTTPS - its raw port 9100 is non-functional -
+ so the stock Epson, gutenprint and escpr CUPS drivers cannot drive it over the
+ network.
+ .
+ This package provides a CUPS raster filter (rastertotmt20iv) that renders each
+ page to a 1-bit image, an "epos" CUPS backend that POSTs it to the printer, and
+ a PPD for the 80 mm roll (576 dots at 203 dpi).
+ .
+ Installing the package does not create a print queue, because the queue needs
+ the printer's IP address. See /usr/share/doc/epsontmt20iv/README.Debian for the
+ single lpadmin command that sets it up.

@@ -28,7 +28,7 @@ re-testing things already proven.
 | T04 | CUT-AND-DRAWER | 2 | Expose cut mode + cash-drawer kick as PPD options | ☐ |
 | T05 | PAPER-WIDTH | 2 | Support 58 mm rolls, not just 80 mm | ☐ |
 | T06 | RASTER-HEADER | 2 | Fix the PPD sample-header error → true 1-bit rendering (8× less data) | ✅ |
-| T07 | CHUNK-LIMIT | 2 | Measure the printer's real max `<image>` height instead of guessing 256 | ☐ |
+| T07 | CHUNK-LIMIT | 2 | Measure the printer's real max `<image>` height instead of guessing 256 | ✅ |
 | T08 | DEBUG-GEOMETRY | 2 | Log resolution + page height in the filter's DEBUG line | ✅ |
 | T09 | DISCOVERY | 3 | Real network discovery so the printer appears in "Add Printer" | ☐ |
 | T10 | DITHER | 3 | Halftoning so photos/logos aren't blotchy | ☐ |
@@ -54,6 +54,8 @@ re-testing things already proven.
 - **T02 (copies)** — CUPS duplicates pages; filter cuts per page; no filter-side loop.
 - **T03 (width guard)** — dormant `WARN` on width != 576.
 - **T06 (1-bit rendering)** — resolved; jobs now render `1 bpp, colorspace=3`.
+- **T07 (chunk limit)** — measured: single request ≥3600 dots (~450mm) works;
+  `CHUNK_ROWS` = 1024 (was 256). Whole receipt fits one POST.
 - **T08 (debug geometry)** — DEBUG line logs `res=...dpi` and `height=...mm`.
 - **T12 (tests)** — raster core factored into `src/raster.c`/`.h`; `make test` runs
   `test_status` + `test_raster` (pure, no CUPS/curl). Keep them green.
@@ -271,9 +273,19 @@ and the filter's own DEBUG line reports `1 bpp, colorspace=3` instead of
 
 ---
 
-## T07 — CHUNK-LIMIT · Measure the real max `<image>` height
-**Why.** `CHUNK_ROWS 256` was a guess. Too large and long receipts could fail on some
-firmware; unnecessarily small wastes XML overhead and round-trips.
+## T07 — CHUNK-LIMIT · Measure the real max `<image>` height  ✅ DONE
+**Measured.** A throwaway script POSTed all-white (no-ink) images of decreasing height
+until the first success. **3600 dots @ 576 wide (~450 mm, ~338 KB request) prints fine**
+on the first try — bigger than any real ticket, and the whole receipt goes in one POST.
+The true max is higher (not probed further, to save paper). `CHUNK_ROWS` moved from the
+guessed **256 → 1024** (`src/raster.h`) — a comfortable margin below 3600 that cuts the
+chunk count ~4×. FACTS.md records the ceiling. `moved to raster.h`, not
+`rastertotmt20iv.c` (see T12). Note: this is also the effective **max receipt length per
+POST** (~≥450 mm); a taller receipt would need multi-POST splitting (not implemented, not
+needed).
+
+**Why (original).** `CHUNK_ROWS 256` was a guess. Too large and long receipts could fail
+on some firmware; unnecessarily small wastes XML overhead.
 
 **Where.** `src/rastertotmt20iv.c` `#define CHUNK_ROWS`.
 
@@ -360,8 +372,8 @@ a `cups_page_header2_t`, `emit_strip`, `render_page_body`). The filter is now ju
 glue that reads rows and calls `render_page_body`. `tests/test_raster.c` (run by
 `make test`) covers: base64 vectors incl. padding, `pack_row` 8-bit threshold / 1-bit
 copy / unsupported-depth, and `render_page_body` for all-blank, an exact single-row
-end-to-end golden, single-ink-row trim (28 rows), both-edges (no trim), and a 600-row
-page chunked 256+256+88. 20 assertions, all green; builds and runs on Windows and the
+end-to-end golden, single-ink-row trim (28 rows), both-edges (no trim), and a 2500-row
+page chunked 1024+1024+452. 20 assertions, all green; builds and runs on Windows and the
 Mint alike (no CUPS/curl). Note: the T03 width-guard lives in `process_page` (CUPS side),
 so it's exercised by the on-Mint print + compile, not this pure suite.
 
